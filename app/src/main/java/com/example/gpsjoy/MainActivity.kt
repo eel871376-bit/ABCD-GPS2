@@ -62,7 +62,7 @@ class MainActivity : Activity() {
             setOnClickListener { fillRealLocation() }
         })
         root.addView(Button(this).apply {
-            text = "Start (조이스틱 띄우기)"
+            text = "onStartClicked() (조이스틱 띄우기)"
             setOnClickListener { onStart() }
         })
         root.addView(Button(this).apply {
@@ -80,7 +80,7 @@ class MainActivity : Activity() {
         setContentView(root)
     }
 
-    private fun onStart() {
+    private fun onStartClicked() {
         // 1) 다른 앱 위에 표시 권한
         if (!Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "'다른 앱 위에 표시'를 허용해 주세요", Toast.LENGTH_LONG).show()

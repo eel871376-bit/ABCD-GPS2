@@ -82,7 +82,13 @@ class JoystickService : Service() {
         lat = intent?.getDoubleExtra(EXTRA_LAT, lat) ?: lat
         lon = intent?.getDoubleExtra(EXTRA_LON, lon) ?: lon
 
-        startForeground(1, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+                try {
+            startForeground(1, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+        } catch (e: Exception) {
+            Toast.makeText(this, "서비스 시작 실패: ${e.message}", Toast.LENGTH_LONG).show()
+            stopSelf()
+            return START_NOT_STICKY
+                }
 
         val mgr = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         lm = mgr
@@ -104,12 +110,13 @@ class JoystickService : Service() {
             return START_NOT_STICKY
         }
 
-        addOverlay()
-        running = true
-        last = SystemClock.elapsedRealtime()
-        handler.post(tick)
-        return START_NOT_STICKY
-    }
+                try {
+            addOverlay()
+        } catch (e: Exception) {
+            Toast.makeText(this, "오버레이 실패: ${e.message}", Toast.LENGTH_LONG).show()
+            stopSelf()
+            return START_NOT_STICKY
+                }
 
     private fun buildNotification(): Notification {
         val nm = getSystemService(NotificationManager::class.java)

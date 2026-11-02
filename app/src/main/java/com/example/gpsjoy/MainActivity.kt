@@ -62,7 +62,7 @@ class MainActivity : Activity() {
             setOnClickListener { fillRealLocation() }
         })
         root.addView(Button(this).apply {
-            text = "(조이스틱 띄우기)"
+            text = "Start (조이스틱 띄우기)"
             setOnClickListener { onStartClicked() }
         })
         root.addView(Button(this).apply {

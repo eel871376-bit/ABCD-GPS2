@@ -81,6 +81,7 @@ class MainActivity : Activity() {
     }
 
     private fun onStartClicked() {
+           Toast.makeText(this, "1. 버튼 클릭됨", Toast.LENGTH_SHORT).show()
         // 1) 다른 앱 위에 표시 권한
         if (!Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "'다른 앱 위에 표시'를 허용해 주세요", Toast.LENGTH_LONG).show()

@@ -124,7 +124,15 @@ class JoystickService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun buildNotification(): Notification {
+        private fun buildNotification(): Notification {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "GPS Joy", NotificationManager.IMPORTANCE_LOW)
+        )
+        return Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle("GPS Joy running")
+            .setContentText("Joystick active")
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setOngoing(true)
+            .build()
+        }

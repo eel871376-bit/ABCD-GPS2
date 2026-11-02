@@ -136,3 +136,140 @@ class JoystickService : Service() {
             .setOngoing(true)
             .build()
         }
+
+            private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    private fun addOverlay() {
+        wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            background = GradientDrawable().apply {
+                setColor(0x99000000.toInt())
+                cornerRadius = dp(16).toFloat()
+            }
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+        }
+
+        val handle = TextView(this).apply {
+            text = "≡ 이동"
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, dp(4))
+        }
+        val joy = JoystickView(this) { x, y -> ex = x; ny = y }
+        info = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 10f
+            gravity = Gravity.CENTER
+        }
+
+        val resetBtn = TextView(this).apply {
+            text = "📍 실제 위치"
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, dp(8))
+            background = GradientDrawable().apply {
+                setColor(0xFFCC3333.toInt())
+                cornerRadius = dp(10).toFloat()
+            }
+            setOnClickListener {
+                Toast.makeText(this@JoystickService, "실제 위치로 복귀합니다", Toast.LENGTH_SHORT).show()
+                stopSelf()
+            }
+        }
+
+        box.addView(handle, LinearLayout.LayoutParams(dp(200), LinearLayout.LayoutParams.WRAP_CONTENT))
+        box.addView(joy, LinearLayout.LayoutParams(dp(200), dp(200)))
+        box.addView(info, LinearLayout.LayoutParams(dp(200), LinearLayout.LayoutParams.WRAP_CONTENT))
+        box.addView(
+            resetBtn,
+            LinearLayout.LayoutParams(dp(200), LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) }
+        )
+
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = dp(20)
+            y = dp(300)
+        }
+
+        var sx = 0f; var sy = 0f; var ox = 0; var oy = 0
+        handle.setOnTouchListener { _, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { sx = e.rawX; sy = e.rawY; ox = lp.x; oy = lp.y }
+                MotionEvent.ACTION_MOVE -> {
+                    lp.x = ox + (e.rawX - sx).toInt()
+                    lp.y = oy + (e.rawY - sy).toInt()
+                    wm?.updateViewLayout(box, lp)
+                }
+            }
+            true
+        }
+
+        overlay = box
+        wm?.addView(box, lp)
+    }
+
+    private fun step() {
+        val mgr = lm ?: return
+        val now = SystemClock.elapsedRealtime()
+        val dt = (now - last) / 1000.0
+        last = now
+
+        val mag = min(1f, hypot(ex, ny))
+        var kmh = 0.0
+        if (mag > DEADZONE && speedMax > 0) {
+            bearing = (Math.toDegrees(atan2(ex.toDouble(), ny.toDouble())) + 360) % 360
+            kmh = speedMax * mag
+            val dist = kmh / 3.6 * dt
+            val p = destination(lat, lon, bearing, dist)
+            lat = p.first
+            lon = p.second
+        }
+
+        try {
+            val l = Location(LocationManager.GPS_PROVIDER)
+            l.latitude = lat
+            l.longitude = lon
+            l.altitude = 30.0
+            l.accuracy = 3f
+            l.bearing = bearing.toFloat()
+            l.speed = (kmh / 3.6).toFloat()
+            l.time = System.currentTimeMillis()
+            l.elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+            mgr.setTestProviderLocation(LocationManager.GPS_PROVIDER, l)
+        } catch (e: Exception) {
+            Toast.makeText(this, "위치 전송 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            stopSelf()
+            return
+        }
+        info?.text = "%.6f, %.6f\n%.0f°  %.1f km/h".format(lat, lon, bearing, kmh)
+    }
+
+    private fun destination(la: Double, lo: Double, brDeg: Double, distM: Double): Pair<Double, Double> {
+        val br = Math.toRadians(brDeg)
+        val d = distM / EARTH_R
+        val la1 = Math.toRadians(la)
+        val lo1 = Math.toRadians(lo)
+        val la2 = asin(sin(la1) * cos(d) + cos(la1) * sin(d) * cos(br))
+        var lo2 = lo1 + atan2(sin(br) * sin(d) * cos(la1), cos(d) - sin(la1) * sin(la2))
+        lo2 = (lo2 + 3 * Math.PI) % (2 * Math.PI) - Math.PI
+        return Pair(Math.toDegrees(la2), Math.toDegrees(lo2))
+    }
+
+    override fun onDestroy() {
+        running = false
+        handler.removeCallbacks(tick)
+        try { overlay?.let { wm?.removeView(it) } } catch (_: Exception) {}
+        overlay = null
+        try { lm?.removeTestProvider(LocationManager.GPS_PROVIDER) } catch (_: Exception) {}
+        super.onDestroy()
+    }
+}
